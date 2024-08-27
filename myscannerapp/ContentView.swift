@@ -14,11 +14,11 @@ struct ContentView: View {
             
             VStack(spacing: 0) {
                 onBoard3DView()
-                   
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 500) // Adjust height as needed
-                    .padding(.bottom, 20)
                     .ignoresSafeArea()
+                    .frame(maxWidth: .infinity)
+                    //.frame(height: 500) // Adjust height as needed
+                    .padding(.bottom, 20)
+                    
 
                 VStack(spacing: 50) {
                     if let image = selectedImage {
