@@ -27,7 +27,7 @@ struct ContentView: View {
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 200, height: 200)
                     } else {
-                        Text("No image selected!")
+                        Text("Upload the QR Code")
                             .font(.title)
                             .foregroundColor(.gray)
                             .padding(.bottom,10)
