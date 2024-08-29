@@ -6,19 +6,16 @@ struct ContentView: View {
     @State private var isImagePickerPresented = false
     @State private var scannedCode = ""
     @State private var result = ""
+    
     let arrayOfStringsToCompare = ["Abu@78sqw", "Bjq502@mps", "pld@10dfr3"]
 
     var body: some View {
-        
         ZStack {
-            
             VStack(spacing: 0) {
-                onBoard3DView()
+                OnBoard3DView()
                     .ignoresSafeArea()
                     .frame(maxWidth: .infinity)
-                    //.frame(height: 500) // Adjust height as needed
                     .padding(.bottom, 20)
-                    
 
                 VStack(spacing: 50) {
                     if let image = selectedImage {
@@ -30,13 +27,10 @@ struct ContentView: View {
                         Text("Upload the QR Code")
                             .font(.title)
                             .foregroundColor(.gray)
-                            .padding(.bottom,10)
+                            .padding(.bottom, 10)
                     }
 
-                    Button(action: {
-                        // Open image picker
-                        self.isImagePickerPresented.toggle()
-                    }) {
+                    Button(action: { self.isImagePickerPresented.toggle() }) {
                         Text("Select Image")
                             .font(.title2)
                             .frame(width: 250, height: 20)
@@ -48,10 +42,6 @@ struct ContentView: View {
                     }
                 }
                 .padding()
-            
-
-               
-
                 .sheet(isPresented: $isImagePickerPresented) {
                     ImagePicker(selectedImage: self.$selectedImage, completionHandler: self.uploadImage)
                 }
@@ -59,71 +49,75 @@ struct ContentView: View {
                 Text(result)
                     .padding()
                     .multilineTextAlignment(.center)
-                
             }
         }
     }
     
     func uploadImage(image: UIImage) {
         guard let imageData = image.jpegData(compressionQuality: 0.8) else {
-            print("Failed to convert image to data")
+            self.result = "Failed to convert image to data"
             return
         }
         
+        let networkManager = NetworkManager()
+        networkManager.uploadImage(imageData: imageData) { responseCode in
+            DispatchQueue.main.async {
+                self.scannedCode = responseCode
+                self.result = self.arrayOfStringsToCompare.contains(responseCode) ?
+                              "Response matches one of the strings in the array" :
+                              "Response does not match any string in the array"
+            }
+        }
+    }
+}
+
+struct NetworkManager {
+    func uploadImage(imageData: Data, completion: @escaping (String) -> Void) {
         guard let url = URL(string: "https://api.qrserver.com/v1/read-qr-code/") else {
-            print("Invalid URL")
+            completion("Invalid URL")
             return
         }
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        
+
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        
+
         var body = Data()
-        
-        // Add image data to the body
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"file\"; filename=\"image.jpeg\"\r\n".data(using: .utf8)!)
         body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
         body.append(imageData)
         body.append("\r\n".data(using: .utf8)!)
-
-        // Add end boundary
         body.append("--\(boundary)--\r\n".data(using: .utf8)!)
         
         request.httpBody = body
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        URLSession.shared.dataTask(with: request) { data, _, error in
             if let error = error {
                 print("Error: \(error)")
+                completion("Error")
                 return
             }
             
-            if let data = data {
-                do {
-                    if let jsonArray = try JSONSerialization.jsonObject(with: data, options: []) as? [[String: Any]] {
-                        if let symbolArray = jsonArray.first?["symbol"] as? [[String: Any]] {
-                            if let firstSymbol = symbolArray.first {
-                                if let dataValue = firstSymbol["data"] as? String {
-                                    DispatchQueue.main.async {
-                                        self.scannedCode = dataValue
-                                    }
-                                }
-                                if arrayOfStringsToCompare.contains(scannedCode) {
-                                               result = "Response matches one of the strings in the array"
-                                           } else {
-                                               result = "Response does not match any string in the array"
-                                           }
-                            }
-                        }
-                    }
-                } catch {
-                    print("Error parsing JSON: \(error.localizedDescription)")
-                }
+            guard let data = data else {
+                completion("No data")
+                return
             }
-
+            
+            do {
+                if let jsonArray = try JSONSerialization.jsonObject(with: data, options: []) as? [[String: Any]],
+                   let symbolArray = jsonArray.first?["symbol"] as? [[String: Any]],
+                   let firstSymbol = symbolArray.first,
+                   let dataValue = firstSymbol["data"] as? String {
+                    completion(dataValue)
+                } else {
+                    completion("Invalid JSON format")
+                }
+            } catch {
+                completion("Error parsing JSON: \(error.localizedDescription)")
+            }
         }.resume()
     }
 }
@@ -166,29 +160,16 @@ struct ImagePicker: UIViewControllerRepresentable {
     }
 }
 
+struct OnBoard3DView: View {
+    var body: some View {
+        let url = URL(string: "https://build.spline.design/4F69S7Z7MQ0bsbmeLSID/scene.splineswift")!
+        try? SplineView(sceneFileURL: url)
+            .ignoresSafeArea(.all)
+    }
+}
+
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
     }
 }
-
-struct onBoard3DView: View {
-    var body: some View {
-        // fetching from cloud
-        let url = URL(string: "https://build.spline.design/4F69S7Z7MQ0bsbmeLSID/scene.splineswift")!
-
-        // // fetching from local
-        // let url = Bundle.main.url(forResource: "scene", withExtension: "splineswift")!
-
-        try? SplineView(sceneFileURL: url).ignoresSafeArea(.all)
-    }
-}
-
-
-
-
-
-
-
-
- 
